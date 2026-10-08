@@ -1,64 +1,75 @@
 from contextlib import nullcontext
 from enum import StrEnum
+from operator import index
 import random
 
 class CardName(StrEnum):
-    COPPER = "Copper"
-    SILVER = "Silver"
-    GOLD = "Gold"
-    ESTATE = "Estate"
-    DUCHY = "Duchy"
     PROVINCE = "Province"
+    GOLD = "Gold"
+    DUCHY = "Duchy"
     SMITHY = "Smithy"
     VILLAGE = "Village"
+    SILVER = "Silver"
+    ESTATE = "Estate"
+    COPPER = "Copper"
 
 class CardType(StrEnum):
     TREASURE = "Treasure"
     VICTORY = "Victory"
     ACTION = "Action"
 
-class Card:
+CARD_COSTS = {
+    CardName.PROVINCE: 8,
+    CardName.GOLD: 6,
+    CardName.DUCHY: 5,
+    CardName.SMITHY: 4,
+    CardName.VILLAGE: 3,
+    CardName.SILVER: 3,
+    CardName.ESTATE: 2,
+    CardName.COPPER: 0,
+}
 
-    def __init__(self, name: CardType):
+CARD_TYPES = {
+    CardName.PROVINCE: CardType.VICTORY,
+    CardName.GOLD: CardType.TREASURE,
+    CardName.DUCHY: CardType.VICTORY,
+    CardName.SMITHY: CardType.ACTION,
+    CardName.VILLAGE: CardType.ACTION,
+    CardName.SILVER: CardType.TREASURE,
+    CardName.ESTATE: CardType.VICTORY,
+    CardName.COPPER: CardType.TREASURE,
+}
+
+COINS_FOR_TREASURE_CARDS = {
+    CardName.GOLD: 3,
+    CardName.SILVER: 2,
+    CardName.COPPER: 1,
+}
+
+VICTORY_POINTS_FOR_VICTORY_CARDS = {
+    CardName.PROVINCE: 6,
+    CardName.DUCHY: 3,
+    CardName.ESTATE: 1,
+}
+
+class Card:
+    def __init__(self, name: CardName):
         self.name = name
         self.coins = 0
         self.victory_points = 0
-        if name == CardName.COPPER:
-            self.coins = 1
-            self.cost = 0
-            self.type = CardType.TREASURE
-        elif name == CardName.SILVER:
-            self.coins = 2
-            self.cost = 3
-            self.type = CardType.TREASURE
-        elif name == CardName.GOLD:
-            self.coins = 3
-            self.cost = 6
-            self.type = CardType.TREASURE
-        elif name == CardName.ESTATE:
-            self.victory_points = 1
-            self.cost = 2
-            self.type = CardType.VICTORY
-        elif name == CardName.DUCHY:
-            self.victory_points = 3
-            self.cost = 5
-            self.type = CardType.VICTORY
-        elif name == CardName.PROVINCE:
-            self.victory_points = 6
-            self.cost = 8
-            self.type = CardType.VICTORY
-        elif name == CardName.SMITHY:
-            self.cost = 4
-            self.type = CardType.ACTION
-        elif name == CardName.VILLAGE:
-            self.cost = 3
-            self.type = CardType.ACTION
-        else:
-            raise ValueError("Invalid card name")   
+        self.cost = CARD_COSTS[name]
+        self.type = CARD_TYPES[name]
+        if CARD_TYPES[name] == CardType.TREASURE:
+            self.coins = COINS_FOR_TREASURE_CARDS[name]
+        elif CARD_TYPES[name] == CardType.VICTORY:
+            self.victory_points = VICTORY_POINTS_FOR_VICTORY_CARDS[name]
+        
 
 
     def __repr__(self) -> str:
         return f"{self.name} ({self.cost})"
+
+        
 
 
 class Player: 
@@ -81,14 +92,11 @@ class Player:
 
     def __repr__(self) -> str:
         return f"{self.player_name} has {self.victory_points} victory points and {self.hand} cards in his hand and {self.discard_p} cards in his discard pile and {self.drow_p} cards in his draw pile"
-
-
     def shuffle_discard_into_drow(self):
         random.shuffle(self.discard_p)
         self.drow_p.extend(self.discard_p)
         self.discard_p = []
         print("shuffled discard into_drow")
-
     def print_dack (self):
         count_cards = 0
         for card in self.drow_p:
@@ -101,7 +109,6 @@ class Player:
             print(card.name)
             count_cards += 1
         print("The player " + self.player_name + " has " + str(count_cards) + " cards in his dack")
-
     def draw_cards(self):
         while self.cards_to_draw > 0:
             if len(self.discard_p) == 0 and len(self.drow_p) == 0:
@@ -112,35 +119,41 @@ class Player:
                 self.shuffle_discard_into_drow()
             self.hand.append(self.drow_p.pop(0))
             self.cards_to_draw -= 1
-        return 
-
     def count_action_cards_in_hand(self):
-        return sum(1 for card in self.hand if card.type == CardType.ACTION)
+        return len([card for card in self.hand if card.type == CardType.ACTION])
 
-    def choose_and_play_action_cards(self):
-        index = 0
-        while index < len(self.hand):
-            if self.hand[index].type == CardType.ACTION and self.hand[index].name == CardName.VILLAGE:
-                self.play_action_card(self.hand[index], index)
-                return
-            index += 1
-        index = 0
-        while index < len(self.hand):
-            if self.hand[index].type == CardType.ACTION and self.hand[index].name == CardName.SMITHY:
-                self.play_action_card(self.hand[index], index)
-                return
-            index += 1
-        return
-            
-    def play_hand_cards(self):
+
+    # play_action_cards --->  play_action_card ||| play_treasure_cards ||| buy_cards ||| end_turn
+
+    def play_action_cards(self):
         while self.action > 0 and self.count_action_cards_in_hand() > 0:
-            self.choose_and_play_action_cards()
-        while len(self.hand) > 0:
-            self.play_card(self.hand[0], 0)
+            for card in self.hand:
+                if card.name == CardName.VILLAGE:
+                    self.play_action_card(card)
+                    break
+            for card in self.hand:
+                if card.name == CardName.SMITHY:
+                    self.play_action_card(card)
+                    break
         return
 
 
+
+    
+            
+
+    def play_treasure_cards(self):
+        for card in list(self.hand):            
+            if card.type == CardType.TREASURE:
+                self.coins += card.coins
+                self.Cards_played.append(card)
+                self.hand.remove(card)
+        return
+
+    # combine play_action_card and play_card  : 
+    """
     def play_card(self, card: Card, index: int):
+        # dont use index
         if card.type == CardType.VICTORY:
             self.Cards_played.append(self.hand.pop(index))
         elif card.type == CardType.TREASURE:
@@ -150,60 +163,51 @@ class Player:
             self.Cards_played.append(self.hand.pop(index))
         return
 
-    def play_action_card(self, card: Card, index: int):
+    """
+
+    def play_action_card(self, card: Card):
         self.action -= 1
+        self.Cards_played.append(card)
+        self.hand.remove(card)
         if card.name == CardName.VILLAGE:
             self.cards_to_draw += 1
             self.action += 2
-            self.Cards_played.append(self.hand.pop(index))
             self.draw_cards()
             print(f"The player {self.player_name} played a Village")
-            return
         elif card.name == CardName.SMITHY:
             self.cards_to_draw += 3
-            self.Cards_played.append(self.hand.pop(index))
             self.draw_cards()
             print(f"The player {self.player_name} played a smithy and he drew 3 more cards")
-            return
         return
         
 
-    def choose_card_to_buy(self):
+    # understnad how to do it better?
+    def buy_cards(self):
         while self.cards_to_buy > 0:
-            random_card = random.choice([CardName.SILVER, CardName.VILLAGE])
-            print("The player " + self.player_name + " has " + str(self.cards_to_buy) + " more cards to buy")
-            if self.coins >= 8 and shop["Province"] > 0: # if the player has enough coins, he can buy a province
-                self.buy_card(CardName.PROVINCE)
-            elif self.coins >= 6 and shop["Gold"] > 0: # if the player has enough coins, he can buy a gold
-                self.buy_card(CardName.GOLD)
-            elif self.coins >= 5 and shop["Duchy"] > 0: # if the player has enough coins, he can buy a duchy
-                self.buy_card(CardName.DUCHY)
-            elif self.coins >= 4 and shop["Smithy"] > 0: # if the player has enough coins, he can buy a smithy
-                self.buy_card(CardName.SMITHY)
-            elif self.coins >= 3 and shop["Village"] > 0 and shop["Silver"] > 0: # if the player has enough coins, he can buy an estate
+            print(f"The player {self.player_name} has {self.cards_to_buy} more cards to buy")
+            if self.coins == 3 and shop[CardName.VILLAGE] > 0 and shop[CardName.SILVER] > 0: # if the player has enough coins, he can buy an estate
+                random_card = random.choice([CardName.SILVER, CardName.VILLAGE])
                 self.buy_card(random_card)
-            elif self.coins >= 3 and shop["Village"] > 0: # if the player has enough coins, he can buy a village
-                self.buy_card(CardName.VILLAGE)
-            elif self.coins >= 3 and shop["Silver"] > 0: # if the player has enough coins, he can buy an estate
-                self.buy_card(CardName.SILVER)
-            elif self.coins >= 2 and shop["Estate"] > 0: # if the player has enough coins, he can buy an estate
-                self.buy_card(CardName.ESTATE)
-            elif self.coins >= 0 and shop["Copper"] > 0: # if the player no money, he can buy a copper
-                self.buy_card(CardName.COPPER)
-
-
+                break
+            for card_name, amount in shop.items():
+                if self.coins >= CARD_COSTS[card_name] and amount > 0:
+                    self.buy_card(card_name)
+                    break
     def buy_card(self, card_name: CardName):
-        self.discard_p.append(Card(card_name))
+        new_card = Card(card_name)
+        self.discard_p.append(new_card)
         shop[card_name] -= 1
         print(f"The player {self.player_name} bought a {card_name}")
-        self.coins -= Card(card_name).cost # did it correctly?
+        if new_card.type == CardType.VICTORY:
+            self.victory_points += VICTORY_POINTS_FOR_VICTORY_CARDS[new_card.name] 
+        elif new_card.type == CardType.TREASURE:
+            self.coins += COINS_FOR_TREASURE_CARDS[new_card.name]
         self.cards_to_buy -= 1
-        self.victory_points += Card(card_name).victory_points # did it correctly?
-        return            
+        return
 
     def end_turn(self):
-        if len(self.hand) > 0:
-            print("eror!!!!!!!!")
+        while len(self.hand) > 0:
+            self.discard_p.append(self.hand.pop(0))
         while len(self.Cards_played) > 0:
             self.discard_p.append(self.Cards_played.pop(0))
         self.cards_to_draw = 5
@@ -211,16 +215,16 @@ class Player:
         self.action = 1
         self.coins = 0
         return
-    
-shop = { # name, amount after divide for 2 players
-    "Copper": 46,
-    "Silver": 40,
-    "Gold": 30,
-    "Estate": 8,
-    "Duchy": 8,
-    "Province": 8,    
-    "Smithy": 10,
-    "Village": 10,
+
+shop = { # for 2 players
+    CardName.PROVINCE: 8,
+    CardName.GOLD: 30,
+    CardName.DUCHY: 8,    
+    CardName.SMITHY: 10,
+    CardName.VILLAGE: 10,
+    CardName.SILVER: 40,
+    CardName.ESTATE: 8,
+    CardName.COPPER: 46
 }
 
 def game_over():
@@ -237,16 +241,24 @@ def game_over():
     print("--------------------------------")
     print(f"Moshe has {Moshe.victory_points} victory points")
     Moshe.print_dack()
-
 def count_empty_paket_in_shop():
     return sum(1 for amount in shop.values() if amount == 0)
 
+    """
+    draw cards
+    play action cards
+    play treasure cards
+    buy cards
+    end turn
+    """
+
 def play_turn(player: Player):  
     player.draw_cards() # draw 5 cards
-    player.play_hand_cards()
-    player.choose_card_to_buy()
+    player.play_action_cards()
+    player.play_treasure_cards()
+    player.buy_cards()
     player.end_turn()
-    print(player)
+    # print(player)
 
 
     
@@ -268,6 +280,7 @@ Aviv_turn = True # Aviv's start
 # Moshe_turn = False # Moshe's second start 
 
 victory_points_to_win = 60
+# remove the duplicate code
 while True:
     if count_empty_paket_in_shop() >= 3:
         print("3 packets in shop are empty")
