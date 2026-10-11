@@ -2,6 +2,7 @@ from contextlib import nullcontext
 from enum import StrEnum
 from operator import index
 import random
+import re
 
 class CardName(StrEnum):
     PROVINCE = "Province"
@@ -12,6 +13,7 @@ class CardName(StrEnum):
     SILVER = "Silver"
     ESTATE = "Estate"
     COPPER = "Copper"
+    REMODEL = "Remodel" 
 
 class CardType(StrEnum):
     TREASURE = "Treasure"
@@ -22,6 +24,7 @@ CARD_COSTS = {
     CardName.PROVINCE: 8,
     CardName.GOLD: 6,
     CardName.DUCHY: 5,
+    CardName.REMODEL: 4,
     CardName.SMITHY: 4,
     CardName.VILLAGE: 3,
     CardName.SILVER: 3,
@@ -33,6 +36,7 @@ CARD_TYPES = {
     CardName.PROVINCE: CardType.VICTORY,
     CardName.GOLD: CardType.TREASURE,
     CardName.DUCHY: CardType.VICTORY,
+    CardName.REMODEL: CardType.ACTION,
     CardName.SMITHY: CardType.ACTION,
     CardName.VILLAGE: CardType.ACTION,
     CardName.SILVER: CardType.TREASURE,
@@ -52,6 +56,8 @@ VICTORY_POINTS_FOR_VICTORY_CARDS = {
     CardName.ESTATE: 1,
 }
 
+trush = []
+
 class Card:
     def __init__(self, name: CardName):
         self.name = name
@@ -68,9 +74,6 @@ class Card:
 
     def __repr__(self) -> str:
         return f"{self.name} ({self.cost})"
-
-        
-
 
 class Player: 
     def __init__(self, player_name: str):
@@ -132,15 +135,15 @@ class Player:
                     self.play_action_card(card)
                     break
             for card in self.hand:
+                if card.name == CardName.REMODEL:
+                    self.play_action_card(card)
+                    break
+            for card in self.hand:
                 if card.name == CardName.SMITHY:
                     self.play_action_card(card)
                     break
         return
-
-
-
-    
-            
+ 
 
     def play_treasure_cards(self):
         for card in list(self.hand):            
@@ -151,19 +154,7 @@ class Player:
         return
 
     # combine play_action_card and play_card  : 
-    """
-    def play_card(self, card: Card, index: int):
-        # dont use index
-        if card.type == CardType.VICTORY:
-            self.Cards_played.append(self.hand.pop(index))
-        elif card.type == CardType.TREASURE:
-            self.coins += card.coins
-            self.Cards_played.append(self.hand.pop(index))
-        elif card.type == CardType.ACTION and self.action == 0:
-            self.Cards_played.append(self.hand.pop(index))
-        return
 
-    """
 
     def play_action_card(self, card: Card):
         self.action -= 1
@@ -178,8 +169,26 @@ class Player:
             self.cards_to_draw += 3
             self.draw_cards()
             print(f"The player {self.player_name} played a smithy and he drew 3 more cards")
+        elif card.name == CardName.REMODEL:
+            self.play_remodel()
         return
-        
+
+    def play_remodel(self):
+        remodel_card = None # the card to remodel
+        new_card = None # the card to buy
+        money_to_buy_new_card = 0 # the money to buy the new card
+        for card in self.hand:
+            if remodel_card is None or card.cost < remodel_card.cost:
+                remodel_card = card
+                money_to_buy_new_card = card.cost + 2 # 2 coins to buy the new card
+        trush.append(remodel_card)
+        print(f"The player {self.player_name} played a remodel and he put a {remodel_card.name} in his trush")
+        self.hand.remove(remodel_card)
+        new_card = find_card_to_buy(money_to_buy_new_card)    
+        self.discard_p.append(new_card)
+        print(f"The player {self.player_name} played a remodel and he put a {new_card.name} in his discard pile")
+
+    
 
     # understnad how to do it better?
     def buy_cards(self):
@@ -187,6 +196,10 @@ class Player:
             print(f"The player {self.player_name} has {self.cards_to_buy} more cards to buy")
             if self.coins == 3 and shop[CardName.VILLAGE] > 0 and shop[CardName.SILVER] > 0: # if the player has enough coins, he can buy an estate
                 random_card = random.choice([CardName.SILVER, CardName.VILLAGE])
+                self.buy_card(random_card)
+                break
+            if self.coins == 4 and shop[CardName.SMITHY] > 0 and shop[CardName.REMODEL] > 0: # if the player has enough coins, he can buy an estate
+                random_card = random.choice([CardName.SMITHY, CardName.REMODEL])
                 self.buy_card(random_card)
                 break
             for card_name, amount in shop.items():
@@ -215,18 +228,23 @@ class Player:
         self.action = 1
         self.coins = 0
         return
-
 shop = { # for 2 players
     CardName.PROVINCE: 8,
     CardName.GOLD: 30,
-    CardName.DUCHY: 8,    
+    CardName.DUCHY: 8,
+    CardName.REMODEL: 10,  
     CardName.SMITHY: 10,
     CardName.VILLAGE: 10,
     CardName.SILVER: 40,
     CardName.ESTATE: 8,
     CardName.COPPER: 46
 }
-
+def find_card_to_buy(money_to_buy_new_card: int): 
+        for card_name, amount in shop.items():
+            if money_to_buy_new_card >= CARD_COSTS[card_name] and amount > 0:
+                new_card = Card(card_name)
+                return new_card
+        return None # if no card is found, return None
 def game_over():
     print("The game is over")
     if Aviv.victory_points > Moshe.victory_points:
