@@ -316,6 +316,3 @@ while True:
         if Moshe.victory_points >= victory_points_to_win:
             break
 game_over()
-
-        
-        
