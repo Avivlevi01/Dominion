@@ -1,4 +1,4 @@
-from game import Card, CardName, CardType, buy_from_shop, find_card_to_buy, push_to_trash, get_amount_of_card_in_shop, find_expensive_card_to_buy
+from game import Card, CardName, CardType, find_expensive_card_in_shop_by_coins, push_to_trash, get_amount_of_card_in_shop, remove_card_from_shop
 import random
 
 class Player:
@@ -95,7 +95,7 @@ class Player:
             self.play_remodel()
         return
 
-    def play_remodel(self):
+    def play_remodel(self):# problem with this function, when there is no card to remodel, the player lost his action card
         remodeled_card = None # the card to remodel
         new_card = None # the card to buy
         money_to_buy_new_card = 0 # the money to buy the new card
@@ -105,16 +105,18 @@ class Player:
                 remodeled_card = card
 
         money_to_buy_new_card = remodeled_card.cost + 2 # 2 coins to buy the new card
-        push_to_trash(remodeled_card)
+        
         self.hand.remove(remodeled_card)
-        new_card = find_card_to_buy(money_to_buy_new_card)
+        new_card = find_expensive_card_in_shop_by_coins(money_to_buy_new_card)
         if new_card is None:
             print(f"The player {self.player_name} tried to buy a new card but no card is found the player lost is action card")
             self.hand.append(remodeled_card) #TODO: add the card to the trash? or just leave it in the hand?
-            # push_to_trash(remodeled_card)
             return
-        self.discard_p.append(new_card)
-        print(f"The player {self.player_name} played a remodel and put a {remodeled_card.name} in the trush and put a {new_card.name} in his discard pile")
+        else:
+            push_to_trash(remodeled_card)    
+            self.discard_p.append(new_card)
+            remove_card_from_shop(new_card.name)
+            print(f"The player {self.player_name} played a remodel and put a {remodeled_card.name} in the trush and put a {new_card.name} in his discard pile")
     
 
     def buy_cards(self):
@@ -129,7 +131,7 @@ class Player:
                 self.buy_card(name_of_random_card)
                 break
 
-            expensive_card = find_expensive_card_to_buy(self.coins)
+            expensive_card = find_expensive_card_in_shop_by_coins(self.coins)
             if expensive_card is not None:
                 self.buy_card(expensive_card.name)
                 break
@@ -143,7 +145,7 @@ class Player:
     def buy_card(self, card_name: CardName):
         new_card = Card.create(card_name)
         self.discard_p.append(new_card)
-        buy_from_shop(card_name) 
+        remove_card_from_shop(card_name) 
         print(f"The player {self.player_name} bought a {card_name}")
         if new_card.type == CardType.VICTORY:
             self.victory_points += new_card.victory_points 

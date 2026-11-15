@@ -1,4 +1,4 @@
-from __future__ import annotations #TODO: understand why this line is here? and help the code to run?
+from __future__ import annotations
 from contextlib import nullcontext
 from enum import StrEnum
 from operator import index
@@ -78,48 +78,39 @@ shop = { # for 2 players
     CardName.COPPER: 46
 }
 
-def buy_from_shop(card_name: CardName):
-    shop[card_name] -= 1
-    return
-
 def get_amount_of_card_in_shop(card_name: CardName):
     return shop[card_name]
 
-def find_card_to_buy(money_to_buy_new_card: int):
-    new_card = None
+
+def remove_card_from_shop(card_name: CardName):
+    shop[card_name] -= 1
+    return
+
+
+def find_expensive_card_in_shop_by_coins(money_to_buy_new_card: int): # have a problem with this function, it returns the first card found and I order it to return the most expensive card becosuse the order is top to bottom
+    expensive_card = None
     for card_name, amount in shop.items():
         if money_to_buy_new_card >= cards[card_name].cost and amount > 0:
-            new_card = Card.create(card_name)
-            shop[cards[card_name].name] -= 1
+            expensive_card = Card.create(card_name)
             break
-    return new_card # if no card is found, return None
-
-
-    def find_expensive_card_to_buy(money_to_buy_new_card: int):
-        expensive_card = None
-        for card_name, amount in shop.items():
-            if money_to_buy_new_card >= cards[card_name].cost and amount > 0:
-                expensive_card = Card.create(card_name)
-                shop[cards[card_name].name] -= 1
-                break
-        return expensive_card # if no card is found, return None
+    return expensive_card # if no card is found, return None
 
 
 def check_game_over(aviv: Player, moshe: Player):
     if count_empty_paket_in_shop() >= 3:
-        print("3 packets in shop are empty")
-        print("The game is over")
+        print(f"3 packets in shop are empty")
+        print(f"The game is over")
         if aviv.victory_points > moshe.victory_points:
-            print("Aviv won the game")
+            print(f"{aviv.player_name} won the game")
         elif aviv.victory_points < moshe.victory_points:
-            print("Moshe won the game")
+            print(f"{moshe.player_name} won the game")
         else:
-            print("The game is a draw")
-        print("--------------------------------")
-        print(f"Aviv has {aviv.victory_points} victory points")
+            print(f"The game is a draw")
+        print(f"--------------------------------")
+        print(f"{aviv.player_name} has {aviv.victory_points} victory points")
         aviv.print_dack()
-        print("--------------------------------")
-        print(f"Moshe has {moshe.victory_points} victory points")
+        print(f"--------------------------------")
+        print(f"{moshe.player_name} has {moshe.victory_points} victory points")
         moshe.print_dack()
         return True
     return False
