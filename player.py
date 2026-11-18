@@ -1,4 +1,5 @@
-from game import Card, CardName, CardType, find_expensive_card_in_shop_by_coins, push_to_trash, get_amount_of_card_in_shop, remove_card_from_shop
+from cards import Card, CardName, CardType, push_to_trash, shop, get_amount_of_card_in_shop, remove_card_from_shop
+from strategy import find_expensive_card_in_shop_by_coins, choose_card_to_buy, choose_action_card_to_play, play_remodel_and_return_remodel_card
 import random
 
 class Player:
@@ -51,23 +52,15 @@ class Player:
         return len([card for card in self.hand if card.type == CardType.ACTION])
 
 
-    def play_action_cards(self):
+    def play_action_cards(self): # move to strategy.py
         while self.action > 0 and self.count_action_cards_in_hand() > 0:
-            for card in self.hand:
-                if card.name == CardName.VILLAGE:
-                    self.play_action_card(card)
-                    self.play_action_cards()
-                    return 
-            for card in self.hand:
-                if card.name == CardName.REMODEL:
-                    self.play_action_card(card)
-                    self.play_action_cards()
-                    return 
-            for card in self.hand:
-                if card.name == CardName.SMITHY:
-                    self.play_action_card(card)
-                    self.play_action_cards()
-                    return
+            chosen_card = choose_action_card_to_play(self.hand)
+            if chosen_card is not None:
+                self.play_action_card(chosen_card)
+                self.play_action_cards()
+                return
+            else:
+                break # if no card is found, the player lost his action cards
 
     def play_treasure_cards(self):
         for card in list(self.hand):            
@@ -76,7 +69,7 @@ class Player:
                 self.cards_played.append(card)
                 self.hand.remove(card)
 
-    def play_action_card(self, card: Card):
+    def play_action_card(self, card: Card): # move to strategy.py
         self.action -= 1
         if self.action < 0:
             raise Exception(f"The player {self.player_name} try to play an action card {card.name} but he has no actions")
@@ -92,57 +85,20 @@ class Player:
             self.draw_cards()
             print(f"The player {self.player_name} played a smithy and he drew 3 more cards")
         elif card.name == CardName.REMODEL:
-            self.play_remodel()
+            self.discard_p.append(play_remodel_and_return_remodel_card(self.hand))
         return
 
-    def play_remodel(self):# problem with this function, when there is no card to remodel, the player lost his action card
-        remodeled_card = None # the card to remodel
-        new_card = None # the card to buy
-        money_to_buy_new_card = 0 # the money to buy the new card
-
-        for card in self.hand:
-            if remodeled_card is None or card.cost < remodeled_card.cost:
-                remodeled_card = card
-
-        money_to_buy_new_card = remodeled_card.cost + 2 # 2 coins to buy the new card
-        
-        self.hand.remove(remodeled_card)
-        new_card = find_expensive_card_in_shop_by_coins(money_to_buy_new_card)
-        if new_card is None:
-            print(f"The player {self.player_name} tried to buy a new card but no card is found the player lost is action card")
-            self.hand.append(remodeled_card) #TODO: add the card to the trash? or just leave it in the hand?
-            return
-        else:
-            push_to_trash(remodeled_card)    
-            self.discard_p.append(new_card)
-            remove_card_from_shop(new_card.name)
-            print(f"The player {self.player_name} played a remodel and put a {remodeled_card.name} in the trush and put a {new_card.name} in his discard pile")
     
 
-    def buy_cards(self):
+    def buy_cards(self): # move to strategy.py
         while self.cards_to_buy > 0:
-            print(f"The player {self.player_name} has {self.cards_to_buy} more cards to buy")
-            if self.coins == 3 and get_amount_of_card_in_shop(CardName.VILLAGE) > 0 and get_amount_of_card_in_shop(CardName.SILVER) > 0: # if the player has enough coins, he can buy an estate
-                name_of_random_card = random.choice([CardName.SILVER, CardName.VILLAGE])
-                self.buy_card(name_of_random_card)
-                break
-            if self.coins == 4 and get_amount_of_card_in_shop(CardName.SMITHY) > 0 and get_amount_of_card_in_shop(CardName.REMODEL) > 0: # if the player has enough coins, he can buy an estate
-                name_of_random_card = random.choice([CardName.SMITHY, CardName.REMODEL])
-                self.buy_card(name_of_random_card)
-                break
+            new_card = choose_card_to_buy(self.coins)
+            if new_card is not None:
+                self.buy_card(new_card)
+            else:
+                break # if no card is found, the player lost his cards to buy
 
-            expensive_card = find_expensive_card_in_shop_by_coins(self.coins)
-            if expensive_card is not None:
-                self.buy_card(expensive_card.name)
-                break
-            '''
-            for card_name, amount in shop.items():
-                if self.coins >= card_name.cost and amount > 0:
-                    self.buy_card(card_name)
-                    break
-            '''
-
-    def buy_card(self, card_name: CardName):
+    def buy_card(self, card_name: CardName): # move to strategy.py
         new_card = Card.create(card_name)
         self.discard_p.append(new_card)
         remove_card_from_shop(card_name) 
