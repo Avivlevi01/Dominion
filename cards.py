@@ -24,7 +24,7 @@ class CardType(StrEnum):
 
 class Card:
 
-    def __init__(self, name: CardName, cost: int = 0, type: CardType = CardType, coins: int = 0, victory_points: int = 0):
+    def __init__(self, name: CardName, cost: int = 0, type: CardType = CardType.ACTION, coins: int = 0, victory_points: int = 0):
         self.name = name
         self.cost = cost
         self.type = type
@@ -39,7 +39,7 @@ class Card:
 
     @staticmethod
     def create(card_name: CardName):
-        original_card = cards[card_name]
+        original_card = cards[card_name] # should get card CardName.SILVER.value / str(CardName.SILVER) / CardName.SILVER
         new_card = Card(name=original_card.name, cost=original_card.cost, type=original_card.type, coins=original_card.coins, victory_points=original_card.victory_points)
         return new_card
     
@@ -51,14 +51,14 @@ cards = {
     CardName.REMODEL: Card(name=CardName.REMODEL, cost=4, type=CardType.ACTION),
     CardName.SMITHY: Card(name=CardName.SMITHY, cost=4, type=CardType.ACTION),
     CardName.VILLAGE: Card(name=CardName.VILLAGE, cost=3, type=CardType.ACTION),
-    CardName.SILVER: Card(name=CardName.SILVER, cost=2, type=CardType.TREASURE, coins=2),
+    CardName.SILVER: Card(name=CardName.SILVER, cost=3, type=CardType.TREASURE, coins=2),
     CardName.ESTATE: Card(name=CardName.ESTATE, cost=2, type=CardType.VICTORY, victory_points=1),
     CardName.COPPER: Card(name=CardName.COPPER, cost=0, type=CardType.TREASURE, coins=1),
 }
 
 trash = []
 
-def push_to_trash(card: Card):
+def push_card_to_trash(card: Card):
     trash.append(card)
     return
 
@@ -74,11 +74,27 @@ shop = { # for 2 players
     CardName.COPPER: 46
 }
 
+def reset_shop():
+    shop.clear()
+    shop.update({
+        CardName.PROVINCE: 8,
+        CardName.GOLD: 30,
+        CardName.DUCHY: 8,
+        CardName.REMODEL: 10,
+        CardName.SMITHY: 10,
+        CardName.VILLAGE: 10,
+        CardName.SILVER: 40,
+        CardName.ESTATE: 8,
+        CardName.COPPER: 46,
+    })
+
+def reset_trash():
+    global trash
+    trash.clear()
+    
 def get_amount_of_card_in_shop(card_name: CardName):
     return shop[card_name]
 
 def remove_card_from_shop(card_name: CardName):
     shop[card_name] -= 1
     return
-
-

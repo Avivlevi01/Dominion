@@ -1,45 +1,10 @@
 # Dominion
 
-**Status: work in progress.** This is an ongoing learning project, not a finished game.
+A two-player card game in Python. Aviv buys at random. Moshe buys the strongest card he can afford. One hundred games decide who comes out ahead.
 
-It is a small Dominion-like card game in Python. The point of the project is to practice the architecture of a game with several classes, shared state, and rules that get harder over time. The code runs a full game between two players. Some rules are still rough, and the known problems are listed below on purpose.
+Each turn draws a hand, plays actions, counts coins, buys one card, and cleans up. The game ends when three shop piles are empty, or when the Province pile is empty. The higher victory-point total wins. A tie is a draw.
 
-## What this project is for
-
-A turn in this game changes several piles at once: the hand, the draw pile, the discard pile, the shop, and the trash. That is a useful place to practice:
-
-- giving each module one job
-- deciding which object owns each piece of state
-- keeping the startup code free of game rules
-- noticing when a new card no longer fits the current design
-
-## Architecture
-
-Five files run the game.
-
-| File | Owns |
-| --- | --- |
-| `main.py` | Creating the two players and starting one game. |
-| `game.py` | The turn loop and the check for the end of the game. |
-| `cards.py` | Card descriptions, the shop, and the trash. |
-| `player.py` | One player's deck, hand, coins, actions, and the steps of a turn. |
-| `strategy.py` | Which card to buy, which action to play, and how Remodel picks a replacement. |
-
-`main.py` does not contain the rules. It builds two `Player` objects and passes them to `start_game`. The starting cards sit in the discard pile. The first draw shuffles that pile into the draw pile, so `main.py` does not shuffle.
-
-Imports stay in one direction. `cards.py` does not import the other game files. `strategy.py` and `player.py` use `cards.py`. `game.py` uses the shop from `cards.py` and the `Player` class from `player.py`. `player.py` does not import `game.py`, so the modules do not import each other in a circle.
-
-The card data lives in one dictionary, `cards`. Each entry is one description: name, cost, type, coins, and victory points. `Card.create` copies that description into a new object for a deck. The shared description does not change when a player gains a card.
-
-`shop` is a second dictionary in `cards.py`. Its keys are card names, and its values are how many copies are still available. The player does not own the shop. A normal buy calls `remove_card_from_shop` once, inside `buy_card`. Remodel lowers the shop once when it gains the replacement card.
-
-A turn is a fixed sequence in `play_turn`: draw, play actions, play treasures, buy, then clean up.
-
-`buy_cards` asks `choose_card_to_buy` for a card name and then buys that name. With 3 coins the choice is Silver or Village. With 4 coins the choice is Smithy or Remodel. Any other coin total uses the first card in the shop that the player can afford.
-
-The end of the game prints the winner from the two player objects. The printed names are `player_name` on those objects.
-
-## Run a game
+## Play
 
 From the project folder:
 
@@ -47,32 +12,64 @@ From the project folder:
 python main.py
 ```
 
-The program plays Aviv against Moshe and prints each turn. It stops when three piles in the shop are empty, then it prints who has more victory points.
+The program prints every shuffle, action, and buy, then the winner of that game. At the end it prints how many games went to Aviv, to Moshe, and to a draw. Each of the 100 passes plays one game and counts that same result.
 
-## What is working now
+Four small checks sit in `test_rules.py`. They cover the winner, a Remodel that changes victory points, the hard buy, and a shop with nothing left to buy. Run them with:
 
-- Card data, the shop, and the trash live in `cards.py`, away from the turn loop.
-- Buy and action choices live in `strategy.py`. `Player` still carries out the chosen step.
-- One normal purchase removes one copy from the shop.
-- The game prints the winner's name from the player objects.
-- A full game can run from `python main.py` through draws, actions, buys, and the end check.
+```powershell
+python -m unittest test_rules.py
+```
 
-## Known issues
+## The two players
 
-These are real gaps in the current code.
+Both players share the same turn and the same action order: Village first, then Remodel or Smithy. Remodel is skipped when it is the only card in hand.
 
-- **"Most expensive" is not really calculated.** `find_expensive_card_in_shop_by_coins` stops at the first card the player can afford. The result depends on the order of the `shop` dictionary, not on a comparison of costs.
-- **A buy with no legal card can crash.** `choose_card_to_buy` reads `.name` on the result of that search. When the result is `None`, Python raises `AttributeError`.
-- **A failed Remodel puts `None` in the discard pile.** Remodel trashes the cheapest card in hand, then looks for a replacement. If none exists, the function returns `None`, and `play_action_card` appends that `None`.
-- **Action effects are still a chain of name checks.** `choose_action_card_to_play` picks Village before Remodel or Smithy. `play_action_card` then branches on the card name. A new action card means another branch.
-- **The end check is written for exactly two players.** The printed names come from the objects, and the parameters are still named for Aviv and Moshe.
-- **Names are still draft names.** Examples: `drow_p`, `print_dack`, and `count_empty_paket_in_shop`.
-- **There are no tests yet.** The game is checked by running it and reading the printed turn log.
+`affordable_card_names` lists the cards still in the shop that the player can pay for.
 
-## Roadmap
+Aviv uses `EasyStrategy`. His buy is a random card from that list. For Remodel he trashes a random card from his hand, and gains a random card he can afford.
 
-1. When no card can be bought, end the buy phase instead of reading `.name` on `None`.
-2. Pick the card with the highest cost the player can afford, instead of trusting dictionary order.
-3. On a failed Remodel, leave a real card outcome: trash the chosen card only when a replacement is gained, and never store `None` in a pile.
-4. Let a new action card add its own behavior, instead of growing the `if card.name` chain.
-5. Rename the draft names, then add a few tests around buying and the end of the game.
+Moshe uses `HardStrategy`. He keeps only the highest cost on that list, and picks at random when two cards share it. With no coins he does not buy. For Remodel he trashes an Estate if he has one, otherwise a Copper, otherwise the cheapest card. The gain tries Province, then Gold, then Smithy or Remodel.
+
+## Architecture
+
+![The light follows one turn: main builds the players, game runs the loop, the player holds a strategy, Easy and Hard extend that strategy, and cards.py keeps the shop and the trash.](assets/architecture.gif)
+
+The light follows one turn. `Player` holds a `Strategy`. `EasyStrategy` and `HardStrategy` extend that shared strategy. They choose. The player carries the choice out.
+
+| File | Owns |
+| --- | --- |
+| `main.py` | Builds the two players, plays 100 games, and counts the results. |
+| `game.py` | Resets the table, runs the turn loop, and names the winner. |
+| `player.py` | One player's deck, hand, coins, actions, buys, and the steps of a turn. |
+| `strategy.py` | Shared choices. The base buy is a random affordable card. |
+| `easy_strategy.py` | The random Remodel trash. The buy comes from the base strategy. |
+| `hard_strategy.py` | The highest affordable buy, and the stronger Remodel picks. |
+| `cards.py` | Card descriptions, shop counts, and the trash. |
+
+Imports point one way. `cards.py` does not import the other game files. Strategies import `cards.py`. `player.py` imports `cards.py` and `strategy.py`. `game.py` imports the shop and `Player`. `player.py` does not import `game.py`.
+
+A strategy never sees the `Player` class. The player passes in a hand or a coin total. The strategy returns a choice. The player then plays, buys, or trashes.
+
+Card descriptions live in one dictionary, `cards`, keyed by `CardName`. `Card.create` copies a description into a new object, so a gained card does not change the shared original. The shop is a second dictionary: card name to how many copies are left. The player does not own it. A buy removes one copy. Remodel removes one copy when it gains the replacement.
+
+A new player starts with 7 Copper and 3 Estate in the discard pile, and with 3 victory points already counted. The first draw shuffles that pile. `main.py` does not shuffle.
+
+## Still open
+
+The match itself runs. A few names and one design limit are still rough.
+
+- Action effects still branch on the card name. `play_action_card` and `choose_action_card_to_play` each know Village, Smithy, and Remodel. A new action card means another branch.
+- The end check takes exactly two players. A third player would need a new loop.
+- A few names are still drafts: `drow_p`, `print_dack`, `count_empty_paket_in_shop`, and `enter_victory_points_to_your_dack`.
+
+<details>
+<summary>Skills practiced in this project</summary>
+
+- Give each file one job, and keep `main.py` free of the rules.
+- Put each pile with its owner: the deck stays on the player, the shop and the trash stay in `cards.py`.
+- Give the player a strategy object, instead of writing one set of choices into `Player`.
+- Keep the shared choices on `Strategy`, and let Easy and Hard override only the choices they change.
+- Reset the shop, the trash, and both players before the next game.
+- Notice when a new action card still needs another `if card.name` branch.
+
+</details>
